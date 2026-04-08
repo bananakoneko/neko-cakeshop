@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>こねこのケーキやさん</title>
+<style>
+  body { background: #fdf0e0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  #game { max-width: 390px; width: 100%; padding: 12px; }
+  #screen { background: #fff8f0; border-radius: 24px; border: 2px solid #f0d8c0; overflow: hidden; min-height: 580px; position: relative; }
+  .scene { display: none; flex-direction: column; align-items: center; padding: 20px 16px; }
+  .scene.active { display: flex; }
+  h2 { font-size: 18px; font-weight: 500; color: #7a4a2a; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #b07050; margin-bottom: 14px; text-align: center; line-height: 1.6; }
+  #header { background: #f9a875; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+  .shop-name { font-size: 15px; font-weight: 500; color: #fff; }
+  .score-badge { margin-left: auto; background: #fff; border-radius: 20px; padding: 3px 10px; font-size: 13px; color: #e07030; font-weight: 500; }
+  .stars { display: flex; gap: 4px; margin-bottom: 10px; }
+  .star { font-size: 20px; opacity: 0.2; transition: opacity 0.3s; }
+  .star.lit { opacity: 1; }
+  .progress-wrap { width: 100%; margin-bottom: 10px; }
+  .progress-label { font-size: 12px; color: #b07050; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .progress-bar { height: 8px; background: #f0deca; border-radius: 4px; overflow: hidden; }
+  .progress-inner { height: 100%; background: #f9a875; border-radius: 4px; transition: width 0.4s ease; }
+  .btn { background: #f9a875; color: white; border: none; border-radius: 20px; padding: 11px 28px; font-size: 15px; cursor: pointer; font-weight: 500; transition: background 0.2s, transform 0.1s; }
+  .btn:hover { background: #e08855; }
+  .btn:active { transform: scale(0.97); }
+  .comment-box { background: white; border: 1.5px solid #f0c8a0; border-radius: 16px; padding: 10px 14px; text-align: center; margin: 8px 0; max-width: 290px; }
+  .comment-box p { font-size: 13px; color: #7a4a2a; line-height: 1.5; white-space: pre-line; }
+  .cake-wrap { position: relative; width: 240px; height: 210px; margin: 0 auto 10px; flex-shrink: 0; }
+  .cake-bottom { position: absolute; bottom: 0; left: 16px; right: 16px; height: 88px; background: #f2c97e; border-radius: 10px 10px 8px 8px; border: 2px solid #d4a850; }
+  .cake-upper { position: absolute; bottom: 82px; left: 28px; right: 28px; height: 82px; background: #f9d99a; border-radius: 10px 10px 4px 4px; border: 2px solid #d4a850; }
+  .cake-cream-layer { position: absolute; bottom: 158px; left: 24px; right: 24px; min-height: 22px; pointer-events: none; }
+  .cake-fruit-upper { position: absolute; bottom: 84px; left: 28px; right: 28px; height: 78px; pointer-events: none; }
+  .cake-fruit-lower { position: absolute; bottom: 2px; left: 16px; right: 16px; height: 84px; pointer-events: none; }
+  .cake-candles { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+  .cream-blob { position: absolute; border-radius: 50% 50% 40% 40%; border-width: 1.5px; border-style: solid; }
+  #candle-tap { position: absolute; top: 0; left: 8px; right: 8px; bottom: 0; cursor: crosshair; z-index: 10; }
+  .cake-candle { position: absolute; font-size: 22px; transform: translate(-50%,-100%); pointer-events: none; animation: flicker 1s ease-in-out infinite alternate; }
+  @keyframes flicker { from{transform:translate(-50%,-100%) scale(1)} to{transform:translate(-50%,-100%) scale(1.08) translateY(-1px)} }
+  #cream-track { position: relative; width: 100%; height: 54px; background: #f9e8d0; border-radius: 28px; border: 2px solid #e0c090; overflow: hidden; cursor: ew-resize; touch-action: none; }
+  #cream-fill { height: 100%; border-radius: 28px; width: 0%; position: relative; transition: width 0.04s; }
+  #cream-cursor { position: absolute; right: -12px; top: 50%; transform: translateY(-50%); font-size: 22px; pointer-events: none; }
+  .target-zone { position: absolute; top:0; bottom:0; right:0; width:25%; background: rgba(100,200,100,0.18); border-left: 2px dashed #80c080; display:flex; align-items:center; padding-left:6px; }
+  .target-label { font-size: 11px; color: #50a050; }
+  #cream-selector { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; width: 100%; }
+  .cream-opt { border: 2px solid transparent; border-radius: 12px; padding: 6px 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; transition: border-color 0.15s, transform 0.1s; background: white; }
+  .cream-opt.selected { border-color: #f09050; transform: scale(1.05); }
+  .cream-dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.15); flex-shrink: 0; }
+  .fruit-palette { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .fruit-btn { width: 42px; height: 42px; border-radius: 50%; border: 2px solid transparent; background: #fff0e0; font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color 0.15s, background 0.15s; position: relative; }
+  .fruit-btn.selected { border-color: #f09050; background: #ffe0c0; }
+  .fruit-hint { position: absolute; top: -6px; right: -6px; background: #f9a875; color: white; font-size: 9px; border-radius: 8px; padding: 1px 4px; line-height: 1.4; white-space: nowrap; font-weight: 500; }
+  .fruit-hint.req { background: #d05050; }
+  #drop-zone-wrap { width: 220px; margin: 0 auto; }
+  .drop-layer { width: 100%; position: relative; cursor: crosshair; overflow: hidden; }
+  #drop-top { height: 78px; background: #fff5e8; border-radius: 12px 12px 0 0; border: 2px solid #e8d0b0; border-bottom: 1px dashed #e0c090; }
+  #drop-bottom { height: 88px; background: #fff0dc; border-radius: 0 0 12px 12px; border: 2px solid #e8d0b0; border-top: none; }
+  .layer-label { position: absolute; top: 4px; left: 8px; font-size: 10px; color: #c0a080; pointer-events: none; }
+  .drop-fruit { position: absolute; font-size: 18px; transform: translate(-50%,-50%); pointer-events: none; animation: popIn 0.18s ease; }
+  @keyframes popIn { from{transform:translate(-50%,-50%) scale(0)} to{transform:translate(-50%,-50%) scale(1)} }
+  .balance-bar { width: 100%; height: 8px; background: #f0e0d0; border-radius: 4px; overflow: hidden; }
+  .balance-fill { height: 100%; background: #90cc90; border-radius: 4px; transition: width 0.3s; }
+  .fruit-score-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+  .fruit-score-chip { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #f9e8d0; color: #a07050; }
+  .fruit-score-chip.hit { background: #d0f0d0; color: #407040; }
+  #final-cake { font-size: 72px; text-align: center; animation: bounceIn 0.5s ease; margin: 8px 0; }
+  @keyframes bounceIn { 0%{transform:scale(0)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .rating { font-size: 22px; letter-spacing: 2px; margin: 4px 0 8px; }
+  .confetti-piece { position: absolute; width: 8px; height: 8px; border-radius: 2px; animation: fall linear forwards; }
+  @keyframes fall { 0%{top:-10px;opacity:1} 100%{top:100%;opacity:0.3} }
+  .confetti-container { position: absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; overflow:hidden; }
+  .order-tag { display: inline-block; background: #fff0e0; border: 1px solid #f0d0b0; border-radius: 10px; padding: 2px 8px; font-size: 11px; color: #c07040; margin: 2px; }
+  .title-step { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .title-step-icon { font-size: 22px; width: 32px; text-align: center; flex-shrink: 0; }
+  .title-step-text { font-size: 13px; color: #7a4a2a; }
+</style>
+</head>
+<body>
+<div id="game">
+<div id="screen">
+  <div id="header">
+    <span style="font-size:22px;">🐱</span>
+    <span class="shop-name">こねこのケーキやさん</span>
+    <span class="score-badge" id="score-display">スコア: 0</span>
+  </div>
+
+  <div class="scene active" id="scene-title" style="padding-top:36px;min-height:540px;justify-content:center;">
+    <div style="font-size:64px;margin-bottom:8px;animation:bounceIn 0.6s ease;">🎂</div>
+    <h2 style="font-size:22px;margin-bottom:4px;">こねこのケーキやさん</h2>
+    <p style="font-size:13px;color:#c09070;margin-bottom:24px;">おいしいケーキを作ってあげよう！</p>
+    <div style="background:white;border-radius:20px;padding:16px 20px;margin-bottom:28px;border:1.5px solid #f0d0b0;width:100%;max-width:270px;">
+      <div class="title-step"><span class="title-step-icon">🎨</span><span class="title-step-text">クリームをぬる</span></div>
+      <div class="title-step"><span class="title-step-icon">🍓</span><span class="title-step-text">フルーツをのせる</span></div>
+      <div class="title-step"><span class="title-step-icon">🕯️</span><span class="title-step-text">ロウソクを立てる</span></div>
+      <div class="title-step"><span class="title-step-icon">🎁</span><span class="title-step-text">お客さんに届ける</span></div>
+    </div>
+    <button class="btn" onclick="goScene('scene-order')">はじめる！</button>
+  </div>
+
+  <div class="scene" id="scene-order">
+    <div style="font-size:52px;margin-bottom:6px;" id="order-big-icon"></div>
+    <h2 id="order-title-name" style="margin-bottom:4px;"></h2>
+    <p class="sub" style="margin-bottom:8px;">注文が来たよ！よく読んでね</p>
+    <div style="background:white;border-radius:16px;padding:14px 18px;margin-bottom:10px;border:1.5px solid #f0d0b0;width:100%;max-width:300px;">
+      <p style="font-size:13px;color:#7a4a2a;line-height:1.8;white-space:pre-line;" id="order-text"></p>
+      <div style="margin-top:8px;" id="order-tags"></div>
+    </div>
+    <div class="comment-box"><p id="comment-text">よろしくお願いします！</p></div>
+    <br>
+    <button class="btn" onclick="goScene('scene-cream')">ケーキ作りスタート！</button>
+  </div>
+
+  <div class="scene" id="scene-cream">
+    <h2>クリームをぬろう</h2>
+    <p class="sub">クリームを選んでスライド！緑ゾーンで止めよう</p>
+    <div class="progress-wrap">
+      <div class="progress-label"><span>ステップ 1/3</span><span>クリーム</span></div>
+      <div class="progress-bar"><div class="progress-inner" style="width:33%"></div></div>
+    </div>
+    <div class="stars"><div class="star" id="cs1">⭐</div><div class="star" id="cs2">⭐</div><div class="star" id="cs3">⭐</div></div>
+    <div id="cream-selector"></div>
+    <div class="cake-wrap" style="margin-bottom:10px;">
+      <div class="cake-bottom"></div>
+      <div class="cake-upper"></div>
+      <div class="cake-cream-layer" id="cream-display-cake"></div>
+    </div>
+    <div id="cream-track" ontouchstart="creamStart(event)" ontouchmove="creamMove(event)" ontouchend="creamEnd()" onmousedown="creamStart(event)" onmousemove="creamMove(event)" onmouseup="creamEnd()">
+      <div id="cream-fill"><span id="cream-cursor">🍦</span></div>
+      <div class="target-zone"><span class="target-label">ぴったり！</span></div>
+    </div>
+    <p style="font-size:12px;color:#b07050;margin-top:6px;text-align:center;" id="cream-msg">← スライドしてね →</p>
+    <br>
+    <button class="btn" id="cream-confirm-btn" style="display:none;" onclick="goScene('scene-fruit')">これでいく！</button>
+  </div>
+
+  <div class="scene" id="scene-fruit">
+    <h2>フルーツをのせよう</h2>
+    <p class="sub" id="fruit-instruction">上段・下段どちらにも置けるよ！</p>
+    <div class="progress-wrap">
+      <div class="progress-label"><span>ステップ 2/3</span><span>フルーツ</span></div>
+      <div class="progress-bar"><div class="progress-inner" style="width:66%"></div></div>
+    </div>
+    <div class="stars"><div class="star" id="fs1">⭐</div><div class="star" id="fs2">⭐</div><div class="star" id="fs3">⭐</div></div>
+    <div class="fruit-palette" id="fruit-palette"></div>
+    <div id="drop-zone-wrap">
+      <div class="drop-layer" id="drop-top" onclick="placeFruit(event,'top')"><span class="layer-label">上段</span></div>
+      <div class="drop-layer" id="drop-bottom" onclick="placeFruit(event,'bottom')"><span class="layer-label">下段</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;width:220px;">
+      <span style="font-size:12px;color:#b07050;">バランス</span>
+      <div class="balance-bar" style="flex:1;"><div class="balance-fill" id="balance-fill" style="width:0%"></div></div>
+      <span style="font-size:12px;color:#b07050;" id="balance-pct">0%</span>
+    </div>
+    <div class="fruit-score-row" id="fruit-score-row"></div>
+    <p style="font-size:12px;color:#b07050;margin-top:4px;">置いた数: <span id="fruit-count-num">0</span> 個</p>
+    <br>
+    <button class="btn" id="fruit-confirm-btn" style="display:none;" onclick="goScene('scene-candle')">のせました！</button>
+  </div>
+
+  <div class="scene" id="scene-candle">
+    <h2>ロウソクを立てよう</h2>
+    <p class="sub">ケーキの上をタップしてね！</p>
+    <div class="progress-wrap">
+      <div class="progress-label"><span>ステップ 3/3</span><span>ロウソク</span></div>
+      <div class="progress-bar"><div class="progress-inner" style="width:100%"></div></div>
+    </div>
+    <div class="cake-wrap" id="candle-cake-wrap">
+      <div class="cake-bottom"></div>
+      <div class="cake-upper"></div>
+      <div class="cake-cream-layer" id="candle-cream-display"></div>
+      <div class="cake-fruit-upper" id="candle-fruit-upper"></div>
+      <div class="cake-fruit-lower" id="candle-fruit-lower"></div>
+      <div class="cake-candles" id="candle-zone"></div>
+      <div id="candle-tap" onclick="placeCandle(event)"></div>
+    </div>
+    <p style="font-size:13px;color:#b07050;" id="candle-msg">ケーキの上をタップしてね</p>
+    <p style="font-size:12px;color:#c09070;margin-top:4px;">(<span id="candle-count">0</span>/3本)</p>
+    <br>
+    <button class="btn" id="candle-btn" style="display:none;" onclick="goScene('scene-final')">完成！</button>
+  </div>
+
+  <div class="scene" id="scene-final" style="min-height:540px;justify-content:center;">
+    <div class="confetti-container" id="confetti"></div>
+    <h2 style="font-size:20px;">ケーキができたよ！</h2>
+    <div id="final-cake">🎂</div>
+    <div class="rating" id="final-stars"></div>
+    <div class="comment-box" style="max-width:290px;margin:6px auto;">
+      <p id="final-comment"></p>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:8px 0;">
+      <span id="final-customer" style="font-size:36px;"></span>
+      <span style="font-size:36px;">😺</span>
+    </div>
+    <div id="final-score-detail" style="font-size:12px;color:#b07050;margin-bottom:4px;"></div>
+    <p style="font-size:13px;color:#b07050;margin-bottom:16px;">合計スコア: <strong id="final-score" style="color:#e07030;font-size:18px;"></strong> 点</p>
+    <button class="btn" onclick="restart()">もう一度作る！</button>
+  </div>
+</div>
+</div>
+
+<script>
+const CREAM_TYPES = {
+  white:   { label:'生クリーム',          fill:'#fffcf5', stroke:'#e0d0b8', gradient:'#fff8ee', emoji:'🤍' },
+  choco:   { label:'チョコクリーム',      fill:'#7b4a22', stroke:'#5a3010', gradient:'#9b6030', emoji:'🍫' },
+  straw:   { label:'イチゴクリーム',      fill:'#f9b8c8', stroke:'#e080a0', gradient:'#fcd0dc', emoji:'🩷' },
+  matcha:  { label:'抹茶クリーム',        fill:'#8fbc6a', stroke:'#5a9040', gradient:'#b0d890', emoji:'🍵' },
+  caramel: { label:'キャラメルクリーム',  fill:'#d4882a', stroke:'#a05010', gradient:'#e8aa50', emoji:'🧡' },
+  blue:    { label:'ブルーベリークリーム',fill:'#8878d8', stroke:'#6050b0', gradient:'#aaa0e8', emoji:'💜' },
+};
+const ALL_FRUITS = ['🍓','🫐','🍇','🍑','🥝','🍒','🍊','🍋','🍌'];
+
+const ANIMAL_POOL = [
+  { emoji:'🐶', name:'いぬさん',      comment_open:'ワン！おねがいします！' },
+  { emoji:'🐱', name:'ねこさん',      comment_open:'にゃー、たのんだよ！' },
+  { emoji:'🐭', name:'ねずみさん',    comment_open:'チュウ、よろしくです！' },
+  { emoji:'🐹', name:'ハムスターさん',comment_open:'ほっぺパンパンで待ってるよ！' },
+  { emoji:'🐰', name:'うさぎさん',    comment_open:'ピョンピョン、よろしくね！' },
+  { emoji:'🐻', name:'くまさん',      comment_open:'もう、はらぺこだよ〜！' },
+  { emoji:'🐼', name:'パンダさん',    comment_open:'モグモグ、たのしみです！' },
+  { emoji:'🐨', name:'コアラさん',    comment_open:'ゆっくり待ってるよ〜' },
+  { emoji:'🦊', name:'きつねさん',    comment_open:'コンコン、おねがいします！' },
+  { emoji:'🐸', name:'かえるさん',    comment_open:'ケロケロ、よろしく！' },
+  { emoji:'🐧', name:'ペンギンさん',  comment_open:'ヨチヨチ、まってるよ！' },
+  { emoji:'🐥', name:'ひよこさん',    comment_open:'ぴよぴよ、はやくたべたい！' },
+  { emoji:'🦆', name:'あひるさん',    comment_open:'クワックワ、たのんだよ！' },
+  { emoji:'🐻‍❄️',name:'しろくまさん', comment_open:'ふわふわのが食べたいな〜' },
+];
+
+const ORDER_TEMPLATES = [
+  { text:'白いふわふわクリームで\nイチゴをたっぷりのせてね！', cream:'white', fruitReq:{'🍓':{label:'イチゴ多め',min:4}}, avoid:[], candleReq:3, comments:['ふわふわだ！','イチゴがいっぱい！','さいこうのケーキ！'] },
+  { text:'イチゴクリームに\nブルーベリーとさくらんぼを\nバランスよくのせてね！', cream:'straw', fruitReq:{'🫐':{label:'ブルーベリー',min:3},'🍒':{label:'さくらんぼ',min:2}}, avoid:['🍋'], candleReq:2, comments:['ピンクがだいすき！','かわいいケーキ！','最高のプレゼント！'] },
+  { text:'チョコクリームに\nキウイとオレンジを\nたっぷりのせてほしいな', cream:'choco', fruitReq:{'🥝':{label:'キウイ多め',min:3},'🍊':{label:'オレンジ多め',min:3}}, avoid:['🍓'], candleReq:1, comments:['チョコ大好きなんだ！','ありがとう、うれしい！','心がこもってるね！'] },
+  { text:'抹茶クリームに\nカラフルなフルーツを\nたっぷりのせてね！', cream:'matcha', fruitReq:{'🍓':{label:'イチゴ',min:2},'🍇':{label:'ぶどう',min:2},'🫐':{label:'ブルーベリー',min:2}}, avoid:[], candleReq:3, comments:['抹茶ケーキが大好き！','カラフルでかわいい！','もっと食べたい！'] },
+  { text:'キャラメルクリームに\nモモとぶどうを\nおしゃれに飾ってください', cream:'caramel', fruitReq:{'🍑':{label:'モモ多め',min:3},'🍇':{label:'ぶどう',min:2}}, avoid:['🍋','🍊'], candleReq:2, comments:['おしゃれだ！','キャラメルが最高！','ありがとう！'] },
+  { text:'ブルーベリークリームに\nイチゴとさくらんぼで\nかわいくしてね！', cream:'blue', fruitReq:{'🍓':{label:'イチゴ多め',min:4},'🍒':{label:'さくらんぼ',min:2}}, avoid:['🍋'], candleReq:3, comments:['むらさきがすき！','かわいすぎる！','最高の誕生日！'] },
+];
+
+const BANANA_TEMPLATES = [
+  { text:'抹茶クリームに\nイチゴをたっぷり！\nバナナも忘れずにね！', cream:'matcha', fruitReq:{'🍓':{label:'イチゴ多め',min:4},'🍌':{label:'バナナ',min:2}}, avoid:[], candleReq:3, comments:['抹茶とイチゴが最高！','バナナ入りうれしい！','さいこうのケーキ！'] },
+  { text:'イチゴクリームに\nバナナといちごを\nいっぱいのせてね！', cream:'straw', fruitReq:{'🍌':{label:'バナナ多め',min:3},'🍓':{label:'イチゴ',min:3}}, avoid:['🍋'], candleReq:2, comments:['ピンクとバナナ最高！','うれしくてたまらない！','また来るね！'] },
+];
+
+const S = { score:0, order:null, selectedCream:'white', creamPct:0, creamScore:0, selectedFruit:'🍓', fruits:[], candleCount:0, dragging:false };
+
+function goScene(id) {
+  document.querySelectorAll('.scene').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id==='scene-order') setupOrder();
+  if(id==='scene-cream') setupCream();
+  if(id==='scene-fruit') setupFruit();
+  if(id==='scene-candle') setupCandle();
+  if(id==='scene-final') setupFinal();
+}
+
+function setupOrder() {
+  S.creamScore=0; S.candleCount=0; S.fruits=[];
+  let customer, tmpl;
+  const isBanana = Math.random() < 0.2;
+  if(isBanana) {
+    customer = { emoji:'🍌', name:'ばななちゃん', comment_open:'バナナが大好きなの！よろしくね！' };
+    tmpl = BANANA_TEMPLATES[Math.floor(Math.random()*BANANA_TEMPLATES.length)];
+  } else {
+    customer = ANIMAL_POOL[Math.floor(Math.random()*ANIMAL_POOL.length)];
+    tmpl = ORDER_TEMPLATES[Math.floor(Math.random()*ORDER_TEMPLATES.length)];
+  }
+  S.order = Object.assign({}, tmpl, { emoji:customer.emoji, name:customer.name, comment_open:customer.comment_open });
+  document.getElementById('order-big-icon').textContent = customer.emoji;
+  document.getElementById('order-title-name').textContent = customer.name+'からの注文！';
+  document.getElementById('order-text').textContent = tmpl.text;
+  document.getElementById('comment-text').textContent = customer.comment_open;
+  const tagsEl = document.getElementById('order-tags'); tagsEl.innerHTML='';
+  const ct=document.createElement('span'); ct.className='order-tag'; ct.textContent=CREAM_TYPES[tmpl.cream].emoji+' '+CREAM_TYPES[tmpl.cream].label; tagsEl.appendChild(ct);
+  Object.values(tmpl.fruitReq).forEach(r=>{ const t=document.createElement('span'); t.className='order-tag'; t.textContent='🍽 '+r.label+'×'+r.min+'以上'; tagsEl.appendChild(t); });
+  if(tmpl.avoid.length){ const t=document.createElement('span'); t.className='order-tag'; t.style.background='#ffe0e0'; t.style.color='#c04040'; t.textContent='NG: '+tmpl.avoid.join(' '); tagsEl.appendChild(t); }
+  const ct2=document.createElement('span'); ct2.className='order-tag'; ct2.textContent='🕯️ ロウソク'+tmpl.candleReq+'本'; tagsEl.appendChild(ct2);
+}
+
+function cC() { return CREAM_TYPES[S.selectedCream]; }
+function setupCream() {
+  S.creamPct=0; S.dragging=false; S.selectedCream=S.order.cream;
+  document.getElementById('cream-fill').style.width='0%';
+  document.getElementById('cream-msg').textContent='← スライドしてね →';
+  document.getElementById('cream-confirm-btn').style.display='none';
+  document.getElementById('cream-display-cake').innerHTML='';
+  ['cs1','cs2','cs3'].forEach(id=>document.getElementById(id).classList.remove('lit'));
+  buildCreamSelector(); updateCreamFillColor();
+}
+function buildCreamSelector() {
+  const sel=document.getElementById('cream-selector'); sel.innerHTML='';
+  Object.entries(CREAM_TYPES).forEach(([key,c])=>{
+    const el=document.createElement('div'); el.className='cream-opt'+(key===S.selectedCream?' selected':'');
+    el.innerHTML=`<div class="cream-dot" style="background:${c.fill};border-color:${c.stroke};"></div><span style="color:#7a4a2a;font-weight:${key===S.order.cream?'500':'400'}">${c.emoji}${c.label}${key===S.order.cream?' ★':''}</span>`;
+    el.onclick=()=>{ S.selectedCream=key; buildCreamSelector(); updateCreamFillColor(); redrawCreamOnCake(); };
+    sel.appendChild(el);
+  });
+}
+function updateCreamFillColor() { const c=cC(); document.getElementById('cream-fill').style.background=`linear-gradient(90deg,${c.fill},${c.gradient})`; }
+function redrawCreamOnCake() { if(S.creamPct>0) drawCreamBlobs('cream-display-cake',S.creamPct); }
+function getX(e){ return e.touches?e.touches[0].clientX:e.clientX; }
+function creamStart(e){ S.dragging=true; creamMove(e); e.preventDefault(); }
+function creamMove(e){
+  if(!S.dragging) return;
+  const rect=document.getElementById('cream-track').getBoundingClientRect();
+  const pct=Math.max(0,Math.min(100,(getX(e)-rect.left)/rect.width*100));
+  S.creamPct=pct; document.getElementById('cream-fill').style.width=pct+'%'; e.preventDefault();
+}
+function creamEnd(){
+  if(!S.dragging) return; S.dragging=false;
+  const p=S.creamPct;
+  let stars=p>=60&&p<=85?3:(p>=48&&p<=90)?2:(p>=32&&p<=95)?1:0;
+  let msg=stars===3?'ぴったり！ さいこう！ 🌟':stars===2?'いい感じ！':stars===1?'うーん... でも大丈夫！':'はみ出しちゃった！';
+  if(S.selectedCream===S.order.cream&&stars<3) stars=Math.min(3,stars+1);
+  S.creamScore=stars;
+  for(let i=1;i<=stars;i++) document.getElementById('cs'+i).classList.add('lit');
+  document.getElementById('cream-msg').textContent=msg+(S.selectedCream===S.order.cream?' オーダー通り！✓':'');
+  document.getElementById('cream-confirm-btn').style.display='block';
+  drawCreamBlobs('cream-display-cake',p);
+}
+function drawCreamBlobs(targetId,pct){
+  const area=document.getElementById(targetId); area.innerHTML='';
+  const c=cC(); const count=Math.max(1,Math.floor(pct/13));
+  for(let i=0;i<count;i++){ const b=document.createElement('div'); b.className='cream-blob'; b.style.cssText=`width:${22+Math.random()*14}px;height:${12+Math.random()*8}px;left:${i*(180/count)+Math.random()*6}px;top:${Math.random()*7}px;position:absolute;background:${c.fill};border-color:${c.stroke};`; area.appendChild(b); }
+}
+
+function setupFruit(){
+  S.fruits=[];
+  ['drop-top','drop-bottom'].forEach(id=>document.getElementById(id).querySelectorAll('.drop-fruit').forEach(e=>e.remove()));
+  document.getElementById('balance-fill').style.width='0%'; document.getElementById('balance-pct').textContent='0%';
+  document.getElementById('fruit-count-num').textContent='0'; document.getElementById('fruit-confirm-btn').style.display='none';
+  ['fs1','fs2','fs3'].forEach(id=>document.getElementById(id).classList.remove('lit')); document.getElementById('fruit-score-row').innerHTML='';
+  const palette=document.getElementById('fruit-palette'); palette.innerHTML=''; S.selectedFruit='🍓'; let firstSet=false;
+  ALL_FRUITS.forEach(f=>{
+    const btn=document.createElement('div'); btn.className='fruit-btn'; btn.setAttribute('data-f',f); btn.onclick=()=>selectFruit(btn,f); btn.innerHTML=f;
+    const req=S.order.fruitReq[f]; const avoided=S.order.avoid.includes(f);
+    if(req){ btn.style.background='#e8fce8'; btn.style.borderColor='#90d090'; const hint=document.createElement('span'); hint.className='fruit-hint req'; hint.textContent='×'+req.min+'以上'; btn.appendChild(hint); if(!firstSet){ S.selectedFruit=f; btn.classList.add('selected'); firstSet=true; } }
+    else if(avoided){ btn.style.background='#fce8e8'; btn.style.opacity='0.55'; const hint=document.createElement('span'); hint.className='fruit-hint'; hint.style.background='#c04040'; hint.textContent='NG'; btn.appendChild(hint); }
+    palette.appendChild(btn);
+  });
+  if(!firstSet){ const first=palette.querySelector('.fruit-btn'); if(first){ first.classList.add('selected'); S.selectedFruit=first.getAttribute('data-f'); } }
+  document.getElementById('fruit-instruction').textContent=Object.entries(S.order.fruitReq).map(([f,r])=>`${f}を${r.min}個以上`).join('、')+'のせてね！';
+  buildFruitChips();
+}
+function buildFruitChips(){
+  const row=document.getElementById('fruit-score-row'); row.innerHTML='';
+  Object.entries(S.order.fruitReq).forEach(([f,r])=>{ const count=S.fruits.filter(x=>x.emoji===f).length; const chip=document.createElement('div'); chip.className='fruit-score-chip'+(count>=r.min?' hit':''); chip.textContent=`${f} ${count}/${r.min}`; row.appendChild(chip); });
+  if(S.order.avoid.length){ const ac=S.fruits.filter(x=>S.order.avoid.includes(x.emoji)).length; const chip=document.createElement('div'); chip.className='fruit-score-chip'+(ac===0?' hit':''); chip.style.background=ac>0?'#ffe0e0':'#d0f0d0'; chip.style.color=ac>0?'#c04040':'#407040'; chip.textContent=ac===0?'NG食材: なし ✓':'NG食材: '+ac+'個'; row.appendChild(chip); }
+}
+function selectFruit(el,f){ if(S.order.avoid.includes(f)) return; document.querySelectorAll('.fruit-btn').forEach(b=>b.classList.remove('selected')); el.classList.add('selected'); S.selectedFruit=f; }
+function placeFruit(e,layer){
+  const zoneEl=document.getElementById(layer==='top'?'drop-top':'drop-bottom');
+  const rect=zoneEl.getBoundingClientRect(); const px=(e.clientX-rect.left)/rect.width; const py=(e.clientY-rect.top)/rect.height;
+  const el=document.createElement('div'); el.className='drop-fruit'; el.style.left=(px*100)+'%'; el.style.top=(py*100)+'%'; el.textContent=S.selectedFruit; zoneEl.appendChild(el);
+  S.fruits.push({emoji:S.selectedFruit,layer,px,py}); document.getElementById('fruit-count-num').textContent=S.fruits.length;
+  updateFruitScore(); if(S.fruits.length>=3) document.getElementById('fruit-confirm-btn').style.display='block';
+}
+function updateFruitScore(){
+  const n=S.fruits.length; if(!n) return; let lx=0,rx=0; S.fruits.forEach(f=>{if(f.px<0.5)lx++;else rx++;});
+  const bal=Math.round((1-Math.abs(lx-rx)/n)*100); document.getElementById('balance-fill').style.width=bal+'%'; document.getElementById('balance-pct').textContent=bal+'%';
+  let reqMet=0,reqTotal=Object.keys(S.order.fruitReq).length; Object.entries(S.order.fruitReq).forEach(([f,r])=>{if(S.fruits.filter(x=>x.emoji===f).length>=r.min)reqMet++;});
+  const noAvoid=S.fruits.filter(x=>S.order.avoid.includes(x.emoji)).length===0;
+  const raw=Math.max(0,Math.min(3,Math.round(reqMet/Math.max(reqTotal,1)*2)+(bal>=75?1:0)+(noAvoid?0:-1)));
+  ['fs1','fs2','fs3'].forEach((id,i)=>document.getElementById(id).classList.toggle('lit',i<raw)); buildFruitChips();
+}
+
+function setupCandle(){
+  S.candleCount=0; document.getElementById('candle-count').textContent='0'; document.getElementById('candle-zone').innerHTML='';
+  document.getElementById('candle-btn').style.display='none'; document.getElementById('candle-msg').textContent='ケーキの上をタップしてね';
+  drawCreamBlobs('candle-cream-display',S.creamPct);
+  const upperEl=document.getElementById('candle-fruit-upper'); const lowerEl=document.getElementById('candle-fruit-lower'); upperEl.innerHTML=''; lowerEl.innerHTML='';
+  S.fruits.forEach(f=>{ const el=document.createElement('div'); el.style.cssText=`position:absolute;font-size:16px;left:${f.px*100}%;top:${f.py*100}%;transform:translate(-50%,-50%);pointer-events:none;`; el.textContent=f.emoji; (f.layer==='top'?upperEl:lowerEl).appendChild(el); });
+}
+function placeCandle(e){
+  if(S.candleCount>=5) return;
+  const rect=document.getElementById('candle-tap').getBoundingClientRect();
+  const x=e.clientX-rect.left; const y=e.clientY-rect.top;
+  const el=document.createElement('div'); el.className='cake-candle'; el.style.cssText=`left:${x}px;top:${y}px;`; el.textContent='🕯️';
+  document.getElementById('candle-zone').appendChild(el); S.candleCount++;
+  document.getElementById('candle-count').textContent=S.candleCount;
+  document.getElementById('candle-msg').textContent=S.candleCount>=S.order.candleReq?'いい感じ！完成させよう！':'もう少しのせてみよう！';
+  if(S.candleCount>=1) document.getElementById('candle-btn').style.display='block';
+}
+
+function setupFinal(){
+  const o=S.order; const creamPts=S.creamScore;
+  let reqMet=0,reqTotal=Object.keys(o.fruitReq).length; Object.entries(o.fruitReq).forEach(([f,r])=>{if(S.fruits.filter(x=>x.emoji===f).length>=r.min)reqMet++;});
+  const noAvoid=S.fruits.filter(x=>o.avoid.includes(x.emoji)).length===0;
+  const n=S.fruits.length; let lx=0,rx=0; S.fruits.forEach(f=>{if(f.px<0.5)lx++;else rx++;});
+  const bal=n>0?Math.round((1-Math.abs(lx-rx)/n)*100):0;
+  const fruitPts=Math.max(0,Math.min(3,Math.round(reqMet/Math.max(reqTotal,1)*2)+(bal>=75?1:0)+(noAvoid?0:-1)));
+  const candlePts=S.candleCount>=o.candleReq?3:S.candleCount>=Math.ceil(o.candleReq/2)?2:S.candleCount>=1?1:0;
+  const total=creamPts+fruitPts+candlePts; const pct=total/9;
+  const stars=pct>=0.78?3:pct>=0.44?2:1; const earned=total*15; S.score+=earned;
+  document.getElementById('score-display').textContent='スコア: '+S.score;
+  document.getElementById('final-score').textContent=S.score;
+  document.getElementById('final-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
+  document.getElementById('final-score-detail').textContent=`クリーム:${creamPts}/3  フルーツ:${fruitPts}/3  ロウソク:${candlePts}/3  (+${earned}点)`;
+  const pool3=['まるでプロのケーキ！ ありがとう！','こんなに完璧に作ってくれるなんて！','なみだが出るくらい嬉しい！'];
+  const pool2=['すごくおいしそう！','上手にできてるね！','ありがとう！'];
+  const pool1=['もらえてうれしいよ！','ありがとう、努力してくれたね！','心がこもってるよ！'];
+  const base=(stars===3?pool3:stars===2?pool2:pool1)[Math.floor(Math.random()*3)];
+  const orderComment=o.comments[Math.floor(Math.random()*o.comments.length)];
+  document.getElementById('final-comment').textContent=orderComment+'\n'+base;
+  document.getElementById('final-customer').textContent=o.emoji;
+  spawnConfetti();
+}
+function spawnConfetti(){
+  const c=document.getElementById('confetti'); c.innerHTML='';
+  const cols=['#f9a875','#f0c090','#90cc90','#a0c8f0','#f090c0','#ffe88a'];
+  for(let i=0;i<38;i++){ const p=document.createElement('div'); p.className='confetti-piece'; p.style.cssText=`left:${Math.random()*100}%;background:${cols[Math.floor(Math.random()*cols.length)]};animation-duration:${1+Math.random()*2}s;animation-delay:${Math.random()*0.8}s;transform:rotate(${Math.random()*360}deg)`; c.appendChild(p); }
+}
+function restart(){ S.creamScore=0; S.candleCount=0; S.fruits=[]; goScene('scene-order'); }
+</script>
+</body>
+</html>
